@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gran Rifa 100 Números - Consulta</title>
+  <style>
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; }
+    body { background-color: #f4f7f6; color: #333; padding: 20px; text-align: center; }
+    .container { max-width: 900px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+    
+    /* Encabezado */
+    header img { width: 100%; max-height: 250px; object-fit: cover; border-radius: 8px; margin-bottom: 20px; }
+    
+    /* Cuadrícula 10x10 */
+    .grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 8px; margin-bottom: 30px; }
+    .number-box { padding: 15px 5px; font-weight: bold; border-radius: 6px; color: white; user-select: none; font-size: 16px; }
+    .available { background-color: #28a745; }
+    .sold { background-color: #dc3545; }
+    
+    /* Leyenda */
+    .legend { display: flex; justify-content: center; gap: 20px; margin-bottom: 20px; font-weight: 500; }
+    .legend span { display: inline-block; width: 15px; height: 15px; border-radius: 3px; margin-right: 5px; vertical-align: middle; }
+    
+    /* Tabla Compradores */
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+    th { background-color: #f8f9fa; cursor: pointer; user-select: none; }
+    th:hover { background-color: #e2e6ea; }
+    
+    @media (max-width: 600px) {
+      .grid { grid-template-columns: repeat(5, 1fr); }
+      .number-box { padding: 10px 2px; font-size: 14px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Imagen de Encabezado -->
+  <header>
+    <img src="encaberifa.png" id="banner" alt="Encabezado Rifa">
+  </header>
+
+  <!-- Leyenda de colores -->
+  <div class="legend">
+    <div><span style="background: #28a745;"></span>Disponible</div>
+    <div><span style="background: #dc3545;"></span>Vendido</div>
+  </div>
+
+  <!-- Cuadrícula 10x10 -->
+  <div class="grid" id="number-grid"></div>
+
+  <!-- Listado de Compradores -->
+  <h2>Listado de Compradores</h2>
+  <table>
+    <thead>
+      <tr>
+        <th onclick="sortTable('numero')">Nº ⇕</th>
+        <th onclick="sortTable('nombre')">Comprador ⇕</th>
+        <th onclick="sortTable('fecha')">Fecha (Bogotá) ⇕</th>
+      </tr>
+    </thead>
+    <tbody id="buyers-list"></tbody>
+  </table>
+</div>
+
+<script>
+  // CONFIGURACIÓN CENTRAL
+  const API_URL = 'https://script.google.com/macros/s/AKfycbwCBbmV4IcpqGr1-WqaMsSH5eDr1mUYp2_zhAWhmqcRh9ixe9ZWYSpH_BtYaWpegzht-w/exec'; 
+
+  let salesData = [];
+  let currentSort = { column: 'numero', asc: true };
+
+  // Inicializar cuadrícula, cargar datos y activar autoactualización
+  document.addEventListener("DOMContentLoaded", () => {
+    initGrid();
+    loadSales();
+    
+    // Autoactualizar la lista de ventas cada 10.000 milisegundos (10 segundos)
+    setInterval(loadSales, 10000);
+  });
+
+  function initGrid() {
+    const grid = document.getElementById('number-grid');
+    grid.innerHTML = '';
+    for (let i = 0; i < 100; i++) {
+      const numStr = String(i).padStart(2, '0');
+      const box = document.createElement('div');
+      box.className = 'number-box available';
+      box.id = `num-${numStr}`;
+      box.innerText = numStr;
+      grid.appendChild(box);
+    }
+  }
+
+  async function loadSales() {
+    try {
+      const res = await fetch(API_URL);
+      salesData = await res.json();
+      updateUI();
+    } catch (err) {
+      console.error("Error al cargar ventas:", err);
+    }
+  }
+
+  function updateUI() {
+    // Limpiar colores de cuadrícula
+    for (let i = 0; i < 100; i++) {
+      const numStr = String(i).padStart(2, '0');
+      const box = document.getElementById(`num-${numStr}`);
+      if(box) box.className = 'number-box available';
+    }
+
+    // Pintar números vendidos
+    salesData.forEach(sale => {
+      const box = document.getElementById(`num-${sale.numero}`);
+      if (box) box.className = 'number-box sold';
+    });
+
+    renderTable();
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('buyers-list');
+    tbody.innerHTML = '';
+
+    salesData.sort((a, b) => {
+      let valA = a[currentSort.column];
+      let valB = b[currentSort.column];
+      
+      if (currentSort.column === 'numero') {
+        valA = parseInt(valA);
+        valB = parseInt(valB);
+      }
+
+      if (valA < valB) return currentSort.asc ? -1 : 1;
+      if (valA > valB) return currentSort.asc ? 1 : -1;
+      return 0;
+    });
+
+    salesData.forEach(sale => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td><strong>${sale.numero}</strong></td><td>${sale.nombre}</td><td>${sale.fecha}</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function sortTable(column) {
+    if (currentSort.column === column) {
+      currentSort.asc = !currentSort.asc;
+    } else {
+      currentSort.column = column;
+      currentSort.asc = true;
+    }
+    renderTable();
+  }
+</script>
+
+</body>
+</html>
